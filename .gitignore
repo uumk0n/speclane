@@ -1,0 +1,5 @@
+node_modules/
+dist/
+.speclane/
+.spec/
+*.log

@@ -1,0 +1,32 @@
+{
+  "name": "specflow-cloud",
+  "version": "0.1.0",
+  "description": "Spec-driven development pipeline with AI agent roles and manual checkpoints",
+  "type": "module",
+  "bin": {
+    "speclane": "./dist/cli.js"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "dev": "tsx src/cli.ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.32.0",
+    "chalk": "^5.3.0",
+    "commander": "^12.1.0",
+    "execa": "^9.5.1",
+    "js-yaml": "^4.1.0",
+    "ora": "^8.1.0",
+    "zod": "^3.23.8"
+  },
+  "devDependencies": {
+    "@types/js-yaml": "^4.0.9",
+    "@types/node": "^22.9.0",
+    "tsx": "^4.19.2",
+    "typescript": "^5.6.3"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}
