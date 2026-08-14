@@ -59,8 +59,10 @@ export async function approveCommand(): Promise<void> {
 
   logger.success(`Stage "${currentStage}" approved. Moving to "${nextStage}".`);
 
-  const passphrase = await ask("Passphrase: ");
-  const apiKey = loadApiKey(passphrase);
+  const config = loadConfig();
+  const apiKey = config.provider === "anthropic"
+    ? loadApiKey(await ask("Passphrase: "))
+    : undefined;
   await runStage(nextStage, apiKey);
 }
 
@@ -83,7 +85,9 @@ export async function rejectCommand(notes: string): Promise<void> {
   saveState(state);
   logger.warn(`Stage "${currentStage}" rejected. Regenerating with your feedback...`);
 
-  const passphrase = await ask("Passphrase: ");
-  const apiKey = loadApiKey(passphrase);
+  const config = loadConfig();
+  const apiKey = config.provider === "anthropic"
+    ? loadApiKey(await ask("Passphrase: "))
+    : undefined;
   await runStage(currentStage, apiKey);
 }

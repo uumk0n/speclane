@@ -1,4 +1,5 @@
 import Anthropic from "@anthropic-ai/sdk";
+import type { CompletionParams, LLMProvider } from "./llm-provider.js";
 
 let client: Anthropic | null = null;
 
@@ -9,22 +10,21 @@ export function getClient(apiKey: string): Anthropic {
   return client;
 }
 
-export async function complete(params: {
-  apiKey: string;
-  model: string;
-  system: string;
-  prompt: string;
-  maxTokens?: number;
-}): Promise<string> {
-  const anthropic = getClient(params.apiKey);
+export class AnthropicProvider implements LLMProvider {
+  constructor(private readonly apiKey: string) {}
 
-  const response = await anthropic.messages.create({
-    model: params.model,
-    max_tokens: params.maxTokens ?? 4096,
-    system: params.system,
-    messages: [{ role: "user", content: params.prompt }],
-  });
+  async complete(params: CompletionParams): Promise<string> {
+    const anthropic = getClient(this.apiKey);
 
-  const textBlocks = response.content.filter((b): b is Anthropic.TextBlock => b.type === "text");
-  return textBlocks.map((b) => b.text).join("\n");
+    const response = await anthropic.messages.create({
+      model: params.model,
+      max_tokens: params.maxTokens ?? 4096,
+      system: params.system,
+      messages: [{ role: "user", content: params.prompt }],
+    });
+
+    // The SDK version in use does not expose JSON Schema-constrained messages.
+    const textBlocks = response.content.filter((b): b is Anthropic.TextBlock => b.type === "text");
+    return textBlocks.map((b) => b.text).join("\n");
+  }
 }

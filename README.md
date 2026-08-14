@@ -3,14 +3,15 @@
 Spec-driven development pipeline: a fixed team of AI agent roles
 (requirements → architecture → implementation → review) that turns a feature
 request into reviewed, spec-backed code — with a manual checkpoint after
-every stage. BYOK: you bring your own Anthropic API key.
+every stage. BYOK: use Anthropic, or run locally with Ollama and no API key.
 
 ## Status: MVP core loop + real implementation writes + git auto-commit
 
 What works end-to-end right now:
 
 - `speclane init` — one-time setup, stores your Anthropic API key encrypted
-  at rest (AES-256-GCM + scrypt) in `~/.speclane/credentials.enc`
+  at rest (AES-256-GCM + scrypt) in `~/.speclane/credentials.enc`, or selects
+  Ollama for a local, key-free path
 - `speclane run "<feature request>"` — starts a pipeline, runs the
   `requirements` stage, writes `.spec/01-requirements.md`, then stops
 - `speclane approve` — approves the current stage, **auto-commits its stage
@@ -51,6 +52,10 @@ files are still written to disk either way, just not committed).
 
 - Node.js >= 18
 - An Anthropic API key
+- Or [Ollama](https://ollama.com/) installed and running locally, with your
+  chosen model pulled (for example, `ollama pull qwen3.6:27b`). Start the
+  local server with `ollama serve` before `speclane run` when using
+  `provider: ollama`.
 
 ## Try it locally (before publishing to npm)
 
@@ -64,6 +69,28 @@ node dist/cli.js approve
 # repeat approve after reading each generated spec file
 node dist/cli.js status
 ```
+
+## Choosing an Ollama model
+
+The implementation stage requires strict JSON output (file operations
+validated against a schema). specflow-cloud constrains Ollama's output to that
+schema at the decoding level (via Ollama's `format` parameter), which matters
+far more for reliability than the model choice itself - but not every local
+model performs equally well within that constraint, especially on multi-file,
+convention-aware code generation.
+
+| Use case | Model | VRAM | Notes |
+|---|---|---|---|
+| Best overall (recommended) | `qwen3.6:27b` | ~17GB | Strongest native JSON/structured output |
+| Larger context needed | `qwen3-coder:30b` | ~24GB | 256K context |
+| Agentic multi-file edits | `devstral:24b` | ~24GB | Purpose-built for agentic coding |
+| Limited VRAM (16GB) | `gpt-oss:20b` | ~16GB | Fits plain RAM, no discrete GPU required |
+| Minimal hardware (8GB) | `qwen3:8b` | ~8GB | Works, but expect more `reject` cycles |
+
+Set the model via `ollamaModel` in `.speclane/config.yaml`, or choose it
+during `speclane init`. Regardless of model, expect more `reject` + regenerate
+cycles on the implementation stage with local models than with Claude - this
+is a quality/cost tradeoff, not a bug.
 
 ## Project layout
 

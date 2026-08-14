@@ -1,8 +1,13 @@
 import { BaseAgent } from "./base-agent.js";
-import { complete } from "../core/anthropic-client.js";
+import { getProvider } from "../core/llm-provider.js";
 import { applyFileOperations, fileOperationsSchema, formatChangePreview } from "../core/file-writer.js";
 import { buildRepositoryContext } from "../core/repository-context.js";
 import type { AgentContext, FileOperation, PipelineStage, StageResult } from "../types/index.js";
+import { zodToJsonSchema } from "zod-to-json-schema";
+
+export const fileOperationsJsonSchema = zodToJsonSchema(fileOperationsSchema, {
+  name: "FileOperations",
+}) as Record<string, unknown>;
 
 function parseOperations(response: string): FileOperation[] {
   const json = response.trim().replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/, "");
@@ -58,17 +63,32 @@ content value must be the complete file, never a diff, snippet, Markdown fence, 
     return this.serializeForRevision(previousOutput);
   }
 
-  async run(ctx: AgentContext, apiKey: string, cwd = process.cwd()): Promise<StageResult> {
+  async run(ctx: AgentContext, apiKey?: string, cwd = process.cwd()): Promise<StageResult> {
     const startedAt = new Date().toISOString();
     this.repositoryCwd = cwd;
-    const response = await complete({
-      apiKey,
-      model: ctx.config.model,
+    const provider = getProvider(ctx.config, apiKey);
+    const completionParams = {
+      model: ctx.config.provider === "ollama" ? ctx.config.ollamaModel : ctx.config.model,
       system: this.systemPrompt,
       prompt: this.buildFinalPrompt(ctx),
       maxTokens: 16_000,
-    });
-    const operations = parseOperations(response);
+      jsonSchema: fileOperationsJsonSchema,
+    };
+    let response = await provider.complete(completionParams);
+    let operations: FileOperation[];
+    try {
+      operations = parseOperations(response);
+    } catch (firstError) {
+      response = await provider.complete({
+        ...completionParams,
+        prompt: `${completionParams.prompt}\n\nYour previous response was invalid. Return only JSON that strictly matches the required file operations schema.`,
+      });
+      try {
+        operations = parseOperations(response);
+      } catch {
+        throw new Error(`Implementation agent returned invalid file operations after one retry. No files were changed. ${(firstError as Error).message}`);
+      }
+    }
     const changes = applyFileOperations(operations, cwd);
     const output = JSON.stringify(operations, null, 2);
     const specFilePath = this.writeSpecFile(ctx, output, cwd);

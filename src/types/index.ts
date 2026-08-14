@@ -49,7 +49,11 @@ export interface PipelineState {
 
 export interface SpeclaneConfig {
   preset: string;
+  /** Hosted Anthropic is the backwards-compatible default; Ollama runs locally. */
+  provider: "anthropic" | "ollama";
   model: string;
+  ollamaHost: string;
+  ollamaModel: string;
   /** Directory where .spec/*.md files are written, relative to repo root. */
   specDir: string;
   /** If true, pipeline stops after every stage for manual approval. */

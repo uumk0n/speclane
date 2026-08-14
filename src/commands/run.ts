@@ -26,13 +26,14 @@ export async function runCommand(featureRequest?: string): Promise<void> {
   state = createPipelineState(featureRequest, config.preset);
   saveState(state);
 
-  const passphrase = await ask("Passphrase: ");
-  const apiKey = loadApiKey(passphrase);
+  const apiKey = config.provider === "anthropic"
+    ? loadApiKey(await ask("Passphrase: "))
+    : undefined;
 
   await runStage(state.currentStage as PipelineStage, apiKey);
 }
 
-export async function runStage(stage: PipelineStage, apiKey: string): Promise<void> {
+export async function runStage(stage: PipelineStage, apiKey?: string): Promise<void> {
   const config = loadConfig();
   const state = loadState();
   if (!state) {

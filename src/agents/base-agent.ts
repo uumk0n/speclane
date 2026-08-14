@@ -1,6 +1,6 @@
 import { writeFileSync, mkdirSync, existsSync } from "node:fs";
 import { join } from "node:path";
-import { complete } from "../core/anthropic-client.js";
+import { getProvider } from "../core/llm-provider.js";
 import type { AgentContext, PipelineStage, StageResult } from "../types/index.js";
 
 export abstract class BaseAgent {
@@ -18,13 +18,12 @@ export abstract class BaseAgent {
     return priorOutput;
   }
 
-  async run(ctx: AgentContext, apiKey: string, cwd = process.cwd()): Promise<StageResult> {
+  async run(ctx: AgentContext, apiKey?: string, cwd = process.cwd()): Promise<StageResult> {
     const startedAt = new Date().toISOString();
     const prompt = this.buildFinalPrompt(ctx);
 
-    const output = await complete({
-      apiKey,
-      model: ctx.config.model,
+    const output = await getProvider(ctx.config, apiKey).complete({
+      model: ctx.config.provider === "ollama" ? ctx.config.ollamaModel : ctx.config.model,
       system: this.systemPrompt,
       prompt,
     });

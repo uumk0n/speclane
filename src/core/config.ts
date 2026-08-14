@@ -8,7 +8,10 @@ const CONFIG_FILENAME = "config.yaml";
 
 export const DEFAULT_CONFIG: SpeclaneConfig = {
   preset: "backend-api",
+  provider: "anthropic",
   model: "claude-sonnet-4-6",
+  ollamaHost: "http://localhost:11434",
+  ollamaModel: "qwen3.6:27b",
   specDir: ".spec",
   requireCheckpoints: true,
   autoCommit: true,
