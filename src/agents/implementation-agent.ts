@@ -15,6 +15,11 @@ function parseOperations(response: string): FileOperation[] {
   return fileOperationsSchema.parse(value);
 }
 
+function preview(content: string): string {
+  const maxChars = 600;
+  return content.length <= maxChars ? content : `${content.slice(0, maxChars)}\n… (truncated)`;
+}
+
 export class ImplementationAgent extends BaseAgent {
   readonly stage: PipelineStage = "implementation";
   readonly specFileName = "03-implementation.json";
@@ -32,6 +37,25 @@ content value must be the complete file, never a diff, snippet, Markdown fence, 
   buildPrompt(ctx: AgentContext): string {
     const architecture = ctx.previousStages.architecture?.output ?? "";
     return `Approved architecture spec:\n\n${architecture}\n\n${buildRepositoryContext(architecture, this.repositoryCwd)}\n\nImplement it.`;
+  }
+
+  /** Makes prior structured operations useful revision context for the model. */
+  override serializeForRevision(previousOutput: string): string {
+    let operations: FileOperation[];
+    try {
+      operations = parseOperations(previousOutput);
+    } catch {
+      return "The previous implementation operations could not be parsed. Inspect the current files and apply the requested revision.";
+    }
+
+    return operations
+      .map((operation) => `[${operation.action}] ${operation.path}\n${preview(operation.content)}`)
+      .join("\n\n");
+  }
+
+  /** Backwards-compatible name for callers that need the operation summary directly. */
+  serializeOperations(previousOutput: string): string {
+    return this.serializeForRevision(previousOutput);
   }
 
   async run(ctx: AgentContext, apiKey: string, cwd = process.cwd()): Promise<StageResult> {

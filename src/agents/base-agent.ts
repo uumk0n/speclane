@@ -13,6 +13,11 @@ export abstract class BaseAgent {
   /** Filename for this stage's spec output, e.g. "01-requirements.md". */
   abstract readonly specFileName: string;
 
+  /** Converts a prior result into useful revision context; prose stages need no conversion. */
+  serializeForRevision(priorOutput: string): string {
+    return priorOutput;
+  }
+
   async run(ctx: AgentContext, apiKey: string, cwd = process.cwd()): Promise<StageResult> {
     const startedAt = new Date().toISOString();
     const prompt = this.buildFinalPrompt(ctx);

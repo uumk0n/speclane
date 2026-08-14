@@ -17,6 +17,12 @@ function isIgnored(relativePath: string): boolean {
   return relativePath.split(/[\\/]/).some((part) => IGNORED_DIRECTORIES.has(part));
 }
 
+function readTextRepositoryFile(path: string, cwd: string): string | null {
+  const absolute = join(cwd, path);
+  if (!existsSync(absolute) || !statSync(absolute).isFile()) return null;
+  return readFileSync(absolute, "utf8");
+}
+
 /** A compact, deterministic project tree suitable for an LLM prompt. */
 export function projectFileTree(cwd: string): string[] {
   const files: string[] = [];
@@ -51,11 +57,21 @@ export function relevantRepositoryFiles(architecture: string, cwd: string, tree 
   return [...referenced]
     .slice(0, MAX_RELEVANT_FILES)
     .flatMap((path) => {
-      const absolute = join(cwd, path);
-      if (!existsSync(absolute) || !statSync(absolute).isFile() || !TEXT_EXTENSIONS.has(extname(path))) return [];
-      const content = readFileSync(absolute, "utf8");
+      if (!TEXT_EXTENSIONS.has(extname(path))) return [];
+      const content = readTextRepositoryFile(path, cwd);
+      if (content === null) return [];
       return [{ path, content: content.slice(0, MAX_FILE_CHARS) }];
     });
+}
+
+/** Reads the current contents of implementation files that still exist on disk. */
+export function readRepositoryFiles(paths: string[], cwd: string): Record<string, string> {
+  return Object.fromEntries(
+    [...new Set(paths)].flatMap((path) => {
+      const content = readTextRepositoryFile(path, cwd);
+      return content === null ? [] : [[path, content.slice(0, MAX_FILE_CHARS)]];
+    })
+  );
 }
 
 export function buildRepositoryContext(architecture: string, cwd: string): string {

@@ -42,14 +42,15 @@ export async function runStage(stage: PipelineStage, apiKey: string): Promise<vo
 
   const agent = createAgent(stage);
   const priorAttempt = state.stages[stage];
+  const revisionNotes = priorAttempt?.status === "rejected" ? priorAttempt.checkpointNotes : undefined;
+  const previousOutput = priorAttempt ? agent.serializeForRevision(priorAttempt.output) : undefined;
 
   const ctx: AgentContext = {
     featureRequest: state.featureRequest,
     previousStages: state.stages,
     config,
-    revision:
-      priorAttempt?.status === "rejected" && priorAttempt.checkpointNotes
-        ? { previousOutput: priorAttempt.output, notes: priorAttempt.checkpointNotes }
+    revision: revisionNotes && previousOutput
+        ? { previousOutput, notes: revisionNotes }
         : undefined,
   };
 
