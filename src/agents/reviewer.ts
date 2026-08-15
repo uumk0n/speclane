@@ -22,12 +22,20 @@ export class Reviewer extends BaseAgent {
   readonly stage: PipelineStage = "review";
   readonly specFileName = "04-review.md";
 
-  readonly systemPrompt = `You are a strict code reviewer. You do not write code.
-Given the original requirements, the architecture spec, and the implementation,
-check whether the implementation actually satisfies the requirements and architecture -
-especially edge cases and out-of-scope boundaries from the requirements spec.
-List concrete mismatches, if any. If everything matches, say so explicitly and briefly.
-Output clean Markdown.`;
+  readonly systemPrompt = `You are a strict, evidence-based code reviewer. You do not write code.
+Given the original requirements, the architecture spec, and the implementation files changed
+by this pipeline, check whether the implementation actually satisfies the requirements and
+architecture - especially edge cases and out-of-scope boundaries from the requirements spec.
+
+Treat a requirement as implemented ONLY when the supplied file contents directly demonstrate
+it. Never infer implementation from the requirements, architecture, endpoint names, file names,
+or prose. Documentation is not implementation. If the changed files do not contain the model,
+business logic, UI, migration, or tests needed for a requirement, report it as missing. In
+particular, do not mark a feature complete when the recorded files are unrelated assets.
+
+Start with a clear verdict: PASS only when every acceptance criterion has direct code evidence;
+otherwise FAIL. For a FAIL, list each unmet requirement and identify the missing or insufficient
+file-level evidence. Output clean Markdown.`;
 
   buildPrompt(ctx: AgentContext): string {
     const requirements = ctx.previousStages.requirements?.output ?? "";

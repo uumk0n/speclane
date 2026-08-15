@@ -80,6 +80,27 @@ export async function rejectCommand(notes: string): Promise<void> {
     return;
   }
 
+  if (currentStage === "review") {
+    const implementation = state.stages.implementation;
+    if (!implementation) {
+      logger.error("Review has no implementation stage to send back for revision.");
+      return;
+    }
+    implementation.status = "rejected";
+    implementation.checkpointNotes = `Review findings:\n${result.output}\n\nUser notes:\n${notes}`;
+    result.status = "rejected";
+    state.currentStage = "implementation";
+    saveState(state);
+    logger.warn("Review rejected. Regenerating the implementation with the review findings...");
+
+    const config = loadConfig();
+    const apiKey = config.provider === "anthropic"
+      ? loadApiKey(await ask("Passphrase: "))
+      : undefined;
+    await runStage("implementation", apiKey);
+    return;
+  }
+
   result.status = "rejected";
   result.checkpointNotes = notes;
   saveState(state);

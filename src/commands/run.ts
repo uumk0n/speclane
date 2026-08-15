@@ -11,10 +11,20 @@ export async function runCommand(featureRequest?: string): Promise<void> {
   let state = loadState();
 
   if (state && state.currentStage !== "done") {
-    logger.warn(
-      `A pipeline for feature "${state.featureRequest}" is already at stage "${state.currentStage}".`
-    );
-    logger.info("Run `speclane approve` to continue, or `speclane status` to inspect it.");
+    const currentResult = state.stages[state.currentStage];
+    if (currentResult?.status === "awaiting_checkpoint") {
+      logger.warn(
+        `A pipeline for feature "${state.featureRequest}" is already awaiting approval at stage "${state.currentStage}".`
+      );
+      logger.info("Run `speclane approve` to continue, or `speclane status` to inspect it.");
+      return;
+    }
+
+    logger.info(`Resuming stage "${state.currentStage}" for feature "${state.featureRequest}".`);
+    const apiKey = config.provider === "anthropic"
+      ? loadApiKey(await ask("Passphrase: "))
+      : undefined;
+    await runStage(state.currentStage as PipelineStage, apiKey);
     return;
   }
 

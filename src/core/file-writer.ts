@@ -38,9 +38,12 @@ export function applyFileOperations(operations: FileOperation[], cwd = process.c
     if (seen.has(absolute)) throw new Error(`Duplicate operation for ${operation.path}`);
     seen.add(absolute);
     const exists = existsSync(absolute);
-    if (operation.action === "create" && exists) throw new Error(`Cannot create existing file: ${operation.path}`);
-    if (operation.action === "modify" && !exists) throw new Error(`Cannot modify missing file: ${operation.path}`);
-    return { ...operation, absolute, before: exists ? readFileSync(absolute, "utf8") : null };
+    // Operations always carry the full desired contents. Whether the target
+    // happens to exist is therefore the authoritative create/modify decision;
+    // this avoids rejecting an otherwise valid response when a local model
+    // mislabels the operation.
+    const action: FileOperation["action"] = exists ? "modify" : "create";
+    return { ...operation, action, absolute, before: exists ? readFileSync(absolute, "utf8") : null };
   });
   const applied: AppliedFileChange[] = [];
   try {
