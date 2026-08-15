@@ -2,6 +2,7 @@
   "name": "specflow-cloud",
   "version": "0.1.0",
   "description": "Spec-driven development pipeline with AI agent roles and manual checkpoints",
+  "license": "Apache-2.0",
   "type": "module",
   "bin": {
     "speclane": "./dist/cli.js"

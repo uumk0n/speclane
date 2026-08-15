@@ -1,116 +1,207 @@
-# specflow-cloud
+# speclane
 
-Spec-driven development pipeline: a fixed team of AI agent roles
-(requirements → architecture → implementation → review) that turns a feature
-request into reviewed, spec-backed code — with a manual checkpoint after
-every stage. BYOK: use Anthropic, or run locally with Ollama and no API key.
+Spec-driven development CLI: a fixed pipeline of AI agent roles turns a feature request into reviewed, spec-backed code — with a **manual checkpoint after every stage**.
 
-## Status: MVP core loop + real implementation writes + git auto-commit
+```
+requirements → architecture → implementation → review
+```
 
-What works end-to-end right now:
+Bring your own key (**Anthropic**) or run fully local with **Ollama** (no API key).
 
-- `speclane init` — one-time setup, stores your Anthropic API key encrypted
-  at rest (AES-256-GCM + scrypt) in `~/.speclane/credentials.enc`, or selects
-  Ollama for a local, key-free path
-- `speclane run "<feature request>"` — starts a pipeline, runs the
-  `requirements` stage, writes `.spec/01-requirements.md`, then stops
-- `speclane approve` — approves the current stage, **auto-commits its stage
-  output to git** (if inside a repo and `autoCommit: true`, the default), then
-  runs the next stage (`architecture` → `.spec/02-architecture.md`,
-  `implementation` → writes real project files and records its operations in
-  `.spec/03-implementation.json`, `review` →
-  `.spec/04-review.md`)
-- `speclane reject "<notes>"` — marks the current stage rejected and
-  **immediately regenerates it**: the agent gets its own previous output
-  plus your feedback and revises rather than starting from scratch. Nothing
-  gets committed until you `approve` the revised version.
-- `speclane status` — shows which stage you're on, what's approved, and how
-  many attempts a stage took (shown when > 1)
+CLI command: `speclane` · npm package: `specflow-cloud`
 
-The implementation agent receives a filtered project tree plus existing files
-explicitly named by the architecture spec. It returns Zod-validated JSON
-full-file operations; only project-relative `create` and `modify` operations
-are applied. A concise diff preview is printed before its checkpoint.
-Approving implementation commits all changed project files as one commit; it
-does not commit the JSON audit file.
+---
 
-Not in this stage on purpose: multiple presets (only `backend-api` exists),
-hosted dashboard, and team features.
+## What it does
 
-### How reject + git together behave
+1. You describe a feature.
+2. Agents produce a requirements spec, then an architecture spec.
+3. The implementation agent writes real project files (`create` / `modify`).
+4. A reviewer checks the result against the specs.
+5. After each stage you **approve**, **edit the files**, or **reject** with notes — nothing advances until you say so.
 
-1. `speclane run "..."` generates requirements, stage waits at checkpoint
-2. `speclane reject "missing the refund edge case"` → agent revises,
-   `.spec/01-requirements.md` is overwritten with attempt 2, still waiting
-3. `speclane approve` → attempt 2 is committed (`git commit -m
-   "specflow-cloud: approve requirements [<id>]"`), pipeline moves on
+Artifacts land in the project you run it in:
 
-Set `autoCommit: false` in `.speclane/config.yaml` to disable commits (spec
-files are still written to disk either way, just not committed).
+| Path | Purpose |
+|------|---------|
+| `.speclane/config.yaml` | Project config (provider, model, flags) |
+| `.speclane/state.json` | Pipeline progress |
+| `.spec/01-requirements.md` | Requirements |
+| `.spec/02-architecture.md` | Architecture |
+| `.spec/03-implementation.json` | Audit log of file operations |
+| `.spec/04-review.md` | Review findings |
+
+---
 
 ## Requirements
 
-- Node.js >= 18
-- An Anthropic API key
-- Or [Ollama](https://ollama.com/) installed and running locally, with your
-  chosen model pulled (for example, `ollama pull qwen3.6:27b`). Start the
-  local server with `ollama serve` before `speclane run` when using
-  `provider: ollama`.
+- **Node.js** ≥ 18
+- Either:
+  - an [Anthropic](https://www.anthropic.com/) API key, or
+  - [Ollama](https://ollama.com/) installed, a model pulled, and `ollama serve` running
 
-## Try it locally (before publishing to npm)
+---
+
+## Install
+
+Not published to npm yet. From source:
+
+```bash
+git clone https://github.com/uumk0n/specflow-cloud.git
+cd specflow-cloud
+npm install
+npm run build
+npm link
+```
+
+That puts `speclane` on your `PATH`. After code changes, run `npm run build` again (no need to re-link).
+
+To unlink later: `npm unlink -g specflow-cloud`
+
+---
+
+## Quick start
+
+Inside the **target project** (the repo you want to change):
+
+```bash
+speclane init
+speclane run "add an endpoint to cancel an order and refund the balance"
+
+# read .spec/01-requirements.md — edit if you want
+speclane approve
+
+# repeat: read the stage output → approve or reject
+speclane status
+```
+
+### Anthropic
+
+`init` encrypts your API key at rest (AES-256-GCM + scrypt) under `~/.speclane/credentials.enc`. You enter the passphrase on each `run` / `approve` / `reject` that needs the model — nothing is cached between CLI invocations.
+
+### Ollama
+
+Choose `ollama` during `init` (or set `provider: ollama` in `.speclane/config.yaml`). No API key. Make sure the server is up before generating:
+
+```bash
+ollama serve
+ollama pull qwen3.6:27b   # or whatever you set as ollamaModel
+```
+
+If you see `fail fetch failed`, Ollama is usually not running on `ollamaHost` (default `http://localhost:11434`).
+
+---
+
+## Commands
+
+| Command | Description |
+|---------|-------------|
+| `speclane init` | Create `.speclane/config.yaml`; store Anthropic key if needed |
+| `speclane run "<feature>"` | Start a pipeline (or resume the current stage) |
+| `speclane approve` | Approve the current stage, optionally auto-commit, run the next |
+| `speclane reject "<notes>"` | Reject and regenerate with your feedback |
+| `speclane status` | Show stage progress and attempt counts |
+
+### Approve, reject, and git
+
+- **`approve`** — marks the stage approved. If `autoCommit: true` (default) and you are in a git repo, commits the stage output (`specflow-cloud: approve <stage> [<id>]`). For implementation, commits the **changed project files**, not the JSON audit file. Then starts the next stage.
+- **`reject "<notes>"`** — regenerates immediately with previous output + your notes. Overwrites the stage artifact; **nothing is committed** until you approve.
+- Set `autoCommit: false` in `.speclane/config.yaml` to disable commits (files are still written to disk).
+
+Rejecting review sends the pipeline back to **implementation** with the review findings as revision notes.
+
+---
+
+## Configuration
+
+Created by `init` at `.speclane/config.yaml`:
+
+```yaml
+preset: backend-api          # only preset today
+provider: anthropic          # or ollama
+model: claude-sonnet-4-6     # Anthropic model
+ollamaHost: http://localhost:11434
+ollamaModel: qwen3.6:27b
+specDir: .spec
+requireCheckpoints: true
+autoCommit: true
+```
+
+### Choosing an Ollama model
+
+Implementation requires strict JSON (file operations). speclane constrains Ollama via the `format` parameter; model quality still matters for multi-file, convention-aware edits.
+
+| Use case | Model | VRAM (approx.) | Notes |
+|----------|-------|----------------|-------|
+| Best overall | `qwen3.6:27b` | ~17GB | Strong structured output |
+| Larger context | `qwen3-coder:30b` | ~24GB | 256K context |
+| Agentic edits | `devstral:24b` | ~24GB | Coding-oriented |
+| ~16GB | `gpt-oss:20b` | ~16GB | Fits modest hardware |
+| Minimal (~8GB) | `qwen3:8b` | ~8GB | Expect more `reject` cycles |
+
+Local models usually need more reject/regenerate loops on implementation than Claude — a quality/cost tradeoff, not a bug.
+
+---
+
+## How implementation works
+
+- Prompt includes a filtered project tree plus files named in the architecture spec.
+- Model returns Zod-validated JSON: full-file `create` / `modify` operations only (project-relative paths).
+- A short diff preview is printed before the checkpoint.
+- Unsafe paths and schema failures are rejected; no partial writes on validation errors.
+
+---
+
+## Security
+
+- Anthropic API keys are stored encrypted (`~/.speclane/credentials.enc`), never in the project tree.
+- Passphrase is required per invocation; speclane does not keep decrypted keys between runs.
+- Prefer Ollama when you want all inference on your machine.
+- Review diffs before `approve`, especially on implementation.
+
+---
+
+## Current scope
+
+**Included**
+
+- End-to-end pipeline with checkpoints
+- Real file writes on implementation
+- Optional git auto-commit on approve
+- Anthropic + Ollama providers
+
+**Not included yet**
+
+- Multiple presets (only `backend-api`)
+- Hosted dashboard / team workflows
+- npm registry publish (`npm install -g …` from the registry)
+
+---
+
+## Development
 
 ```bash
 npm install
-npm run build
-node dist/cli.js init
-node dist/cli.js run "add an endpoint to cancel an order and refund the balance"
-# read .spec/01-requirements.md, edit if you want, then:
-node dist/cli.js approve
-# repeat approve after reading each generated spec file
-node dist/cli.js status
+npm run build        # compile to dist/
+npm run typecheck
+npm run dev          # run CLI via tsx without building
+npm run verify:providers
 ```
-
-## Choosing an Ollama model
-
-The implementation stage requires strict JSON output (file operations
-validated against a schema). specflow-cloud constrains Ollama's output to that
-schema at the decoding level (via Ollama's `format` parameter), which matters
-far more for reliability than the model choice itself - but not every local
-model performs equally well within that constraint, especially on multi-file,
-convention-aware code generation.
-
-| Use case | Model | VRAM | Notes |
-|---|---|---|---|
-| Best overall (recommended) | `qwen3.6:27b` | ~17GB | Strongest native JSON/structured output |
-| Larger context needed | `qwen3-coder:30b` | ~24GB | 256K context |
-| Agentic multi-file edits | `devstral:24b` | ~24GB | Purpose-built for agentic coding |
-| Limited VRAM (16GB) | `gpt-oss:20b` | ~16GB | Fits plain RAM, no discrete GPU required |
-| Minimal hardware (8GB) | `qwen3:8b` | ~8GB | Works, but expect more `reject` cycles |
-
-Set the model via `ollamaModel` in `.speclane/config.yaml`, or choose it
-during `speclane init`. Regardless of model, expect more `reject` + regenerate
-cycles on the implementation stage with local models than with Claude - this
-is a quality/cost tradeoff, not a bug.
-
-## Project layout
 
 ```
 src/
-  cli.ts              entry point, registers commands
-  commands/           init, run, approve/reject, status
-  core/                config, state machine, Anthropic client wrapper
-  agents/              one class per pipeline role + a registry
-  types/                shared types
-  utils/                logger, encrypted credential storage, prompt helper
+  cli.ts           entry point
+  commands/        init, run, approve/reject, status
+  core/            config, state, providers, file writer
+  agents/          one agent per pipeline stage
+  types/           shared types
+  utils/           logger, credentials, git helpers
 ```
 
-Generated at runtime inside whatever project you run `speclane` in
-(not part of this repo): `.speclane/config.yaml`, `.speclane/state.json`,
-`.spec/*.md`.
+---
 
-## Security note
+## License
 
-The API key is encrypted with AES-256-GCM, key derived via scrypt from a
-passphrase you choose at `init` time. You'll be asked for that passphrase
-on every `run`/`approve` call, since decryption happens per-invocation and
-nothing is cached in memory between CLI runs.
+[Apache License 2.0](./LICENSE) — Copyright 2026 Ilya Konyaev.
+
+You can use, modify, and redistribute this software under Apache-2.0. Future paid/proprietary features can ship separately (open-core); this license does not prevent that.
