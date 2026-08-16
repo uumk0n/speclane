@@ -8,7 +8,7 @@ requirements → architecture → implementation → review
 
 Bring your own key (**Anthropic**) or run fully local with **Ollama** (no API key).
 
-CLI command: `speclane` · npm package: `specflow-cloud`
+CLI command: `speclane` · npm package: `speclane`
 
 ---
 
@@ -47,8 +47,8 @@ Artifacts land in the project you run it in:
 Not published to npm yet. From source:
 
 ```bash
-git clone https://github.com/uumk0n/specflow-cloud.git
-cd specflow-cloud
+git clone https://github.com/uumk0n/speclane.git
+cd speclane
 npm install
 npm run build
 npm link
@@ -56,7 +56,7 @@ npm link
 
 That puts `speclane` on your `PATH`. After code changes, run `npm run build` again (no need to re-link).
 
-To unlink later: `npm unlink -g specflow-cloud`
+To unlink later: `npm unlink -g speclane`
 
 ---
 
@@ -104,7 +104,7 @@ If you see `fail fetch failed`, Ollama is usually not running on `ollamaHost` (d
 
 ### Approve, reject, and git
 
-- **`approve`** — marks the stage approved. If `autoCommit: true` (default) and you are in a git repo, commits the stage output (`specflow-cloud: approve <stage> [<id>]`). For implementation, commits the **changed project files**, not the JSON audit file. Then starts the next stage.
+- **`approve`** — marks the stage approved. If `autoCommit: true` (default) and you are in a git repo, commits the stage output (`speclane: approve <stage> [<id>]`). For implementation, commits the **changed project files**, not the JSON audit file. Then starts the next stage.
 - **`reject "<notes>"`** — regenerates immediately with previous output + your notes. Overwrites the stage artifact; **nothing is committed** until you approve.
 - Set `autoCommit: false` in `.speclane/config.yaml` to disable commits (files are still written to disk).
 
